@@ -177,7 +177,7 @@
           </Link>
           <Link
             to="/customer/dashboard"
-            className="px-6 py-3 bg-green-400 text-black font-semibold rounded-full hover:scale-105 transition"
+            className="px-6 py-4 bg-green-400 text-black font-semibold rounded-full hover:scale-105 transition"
           >
             Go to Dashboard
           </Link>
