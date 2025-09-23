@@ -1,0 +1,15 @@
+@import "leaflet/dist/leaflet.css";
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* custom */
+:root {
+  --bg-grad-1: #020617;
+  --bg-grad-2: #0f1724;
+}
+
+body {
+  background: linear-gradient(180deg, rgba(2,6,23,1) 0%, rgba(15,23,36,1) 100%);
+  color: #e6eef2;
+}
