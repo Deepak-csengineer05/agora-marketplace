@@ -1,12 +1,10 @@
-// src/components/AuthForm.jsx
+// src/components/AuthForm.jsx - UPDATED VERSION
 import React, { useState } from "react";
-import { motion } from "framer-motion";
+import { motion ,AnimatePresence} from "framer-motion";
 import { useAuth } from "../utils/auth";
-import { FaGoogle, FaPhone } from "react-icons/fa";
+import { FaGoogle, FaPhone, FaEye, FaEyeSlash } from "react-icons/fa";
+import { authService } from "../services/authService";
 
-/**
- * AuthForm handles login + signup with multi-step wizard for signup
- */
 export default function AuthForm({ mode = "login" }) {
   return mode === "signup" ? <SignupWizard /> : <LoginForm />;
 }
@@ -16,6 +14,7 @@ function LoginForm() {
   const { login, loginWithOTP, verifyOTP, loginWithGoogleMock } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [phone, setPhone] = useState("");
   const [otpSent, setOtpSent] = useState(false);
   const [otpValue, setOtpValue] = useState("");
@@ -23,7 +22,7 @@ function LoginForm() {
   const [loading, setLoading] = useState(false);
   const [googleEmail, setGoogleEmail] = useState("");
   const [googleRole, setGoogleRole] = useState("customer");
-  const [googleVendorType, setGoogleVendorType] = useState("product"); // NEW
+  const [googleVendorType, setGoogleVendorType] = useState("product");
 
   async function doLogin(e) {
     e.preventDefault();
@@ -40,33 +39,71 @@ function LoginForm() {
 
   async function sendOtp() {
     if (!phone) return setUiMsg("Enter phone number");
+    setLoading(true);
     try {
       const code = await loginWithOTP({ phone });
-      setUiMsg(`OTP (mock): ${code} — enter below`);
+      setUiMsg(`OTP sent! Check your phone. Demo OTP: ${code}`);
       setOtpSent(true);
     } catch (err) {
       setUiMsg(err.message || "Failed to send OTP");
+    } finally {
+      setLoading(false);
     }
   }
 
   async function doVerifyOtp() {
+    setLoading(true);
     try {
-      await verifyOTP({ phone, code: otpValue });
+      await verifyOTP({ 
+        phone, 
+        code: otpValue,
+        role: "customer"
+      });
     } catch (err) {
       setUiMsg(err.message || "OTP verification failed");
+    } finally {
+      setLoading(false);
     }
   }
 
   async function doGoogleMock(e) {
     e.preventDefault();
+    setLoading(true);
     try {
       await loginWithGoogleMock({
         email: googleEmail || "user@google.test",
         chosenRole: googleRole,
-        vendorType: googleRole === "vendor" ? googleVendorType : undefined, // NEW
+        vendorType: googleRole === "vendor" ? googleVendorType : undefined,
       });
     } catch (err) {
       setUiMsg(err.message || "Google sign-in failed");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  // Forgot password states & handler (local UI)
+  const [showReset, setShowReset] = useState(false);
+  const [resetEmail, setResetEmail] = useState("");
+  const [resetMsg, setResetMsg] = useState("");
+  const [resetLoading, setResetLoading] = useState(false);
+
+  async function sendPasswordReset() {
+    if (!resetEmail) return setResetMsg('Enter your email');
+    setResetLoading(true);
+    setResetMsg('');
+    try {
+      // Try backend endpoint - may be a no-op if backend not implemented
+      if (authService && authService.resetPassword) {
+        await authService.resetPassword({ email: resetEmail });
+        setResetMsg('If the email exists, a reset link has been sent.');
+      } else {
+        setResetMsg('Password reset is not configured on the backend.');
+      }
+    } catch (err) {
+      setResetMsg(err?.message || 'Failed to request password reset');
+    } finally {
+      setResetLoading(false);
     }
   }
 
@@ -84,6 +121,7 @@ function LoginForm() {
           <label className="text-sm text-gray-600 dark:text-gray-300">Email</label>
           <input
             required
+            type="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             className="w-full mt-1 px-3 py-2 rounded-md bg-gray-100 dark:bg-gray-900 border border-gray-300 dark:border-gray-700"
@@ -93,25 +131,41 @@ function LoginForm() {
 
         <div>
           <label className="text-sm text-gray-600 dark:text-gray-300">Password</label>
-          <input
-            required
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            className="w-full mt-1 px-3 py-2 rounded-md bg-gray-100 dark:bg-gray-900 border border-gray-300 dark:border-gray-700"
-            placeholder="••••••••"
-          />
+          <div className="relative">
+            <input
+              required
+              type={showPassword ? 'text' : 'password'}
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="w-full mt-1 px-3 py-2 pr-10 rounded-md bg-gray-100 dark:bg-gray-900 border border-gray-300 dark:border-gray-700"
+              placeholder="••••••••"
+              minLength="6"
+            />
+            <button
+              type="button"
+              onClick={() => setShowPassword((s) => !s)}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+              aria-label={showPassword ? 'Hide password' : 'Show password'}
+              tabIndex={-1}
+            >
+              {showPassword ? <FaEyeSlash size={18} /> : <FaEye size={18} />}
+            </button>
+          </div>
+          <p className="text-xs text-gray-500 mt-1">Must contain uppercase, lowercase, and number</p>
         </div>
 
         <button
           type="submit"
           disabled={loading}
-          className="w-full px-4 py-2 rounded-full bg-agoraTeal text-black font-semibold shadow"
+          className="w-full px-4 py-2 rounded-full bg-agoraTeal text-black font-semibold shadow disabled:opacity-50"
         >
           {loading ? "Signing in..." : "Login"}
         </button>
 
         {uiMsg && <p className="text-sm text-red-500">{uiMsg}</p>}
+
+        {/* Forgot password UI */}
+        <ForgotPassword />
       </motion.form>
 
       {/* OTP + Google mock login */}
@@ -130,14 +184,16 @@ function LoginForm() {
           <div className="flex gap-2">
             <input
               value={phone}
-              onChange={(e) => setPhone(e.target.value)}
+              onChange={(e) => setPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
               className="flex-1 px-3 py-2 rounded-md bg-gray-100 dark:bg-gray-900 border border-gray-300 dark:border-gray-700"
-              placeholder="+91 98765 43210"
+              placeholder="Eg:(9876543210)"
+              maxLength="10"
             />
             <button
               type="button"
               onClick={sendOtp}
-              className="px-3 py-2 rounded-md bg-gray-200 dark:bg-gray-800"
+              disabled={loading || !phone}
+              className="px-3 py-2 rounded-md bg-gray-200 dark:bg-gray-800 disabled:opacity-50"
             >
               Send OTP
             </button>
@@ -146,14 +202,16 @@ function LoginForm() {
             <div className="mt-3 flex gap-2">
               <input
                 value={otpValue}
-                onChange={(e) => setOtpValue(e.target.value)}
+                onChange={(e) => setOtpValue(e.target.value.replace(/\D/g, '').slice(0, 6))}
                 className="flex-1 px-3 py-2 rounded-md bg-gray-100 dark:bg-gray-900 border border-gray-300 dark:border-gray-700"
                 placeholder="Enter OTP"
+                maxLength="6"
               />
               <button
                 type="button"
                 onClick={doVerifyOtp}
-                className="px-3 py-2 rounded-md bg-agoraPink text-black"
+                disabled={loading || otpValue.length < 4}
+                className="px-3 py-2 rounded-md bg-agoraPink text-black disabled:opacity-50"
               >
                 Verify
               </button>
@@ -184,7 +242,6 @@ function LoginForm() {
             <option value="admin">Admin (testing)</option>
           </select>
 
-          {/* 👇 Extra dropdown if vendor is chosen */}
           {googleRole === "vendor" && (
             <select
               value={googleVendorType}
@@ -198,7 +255,8 @@ function LoginForm() {
 
           <button
             onClick={doGoogleMock}
-            className="w-full px-3 py-2 rounded-full bg-pink-600 text-white"
+            disabled={loading}
+            className="w-full px-3 py-2 rounded-full bg-pink-600 text-white disabled:opacity-50"
           >
             Continue with Google
           </button>
@@ -207,6 +265,48 @@ function LoginForm() {
     </div>
   );
 }
+
+/* ----------------- Forgot Password UI (Login) ----------------- */
+function ForgotPassword() {
+  const [showResetLocal, setShowResetLocal] = useState(false);
+  const [emailLocal, setEmailLocal] = useState("");
+  const [msgLocal, setMsgLocal] = useState("");
+  const [loadingLocal, setLoadingLocal] = useState(false);
+
+  async function send() {
+    if (!emailLocal) return setMsgLocal('Enter an email');
+    setLoadingLocal(true);
+    setMsgLocal('');
+    try {
+      if (authService && authService.resetPassword) {
+        await authService.resetPassword({ email: emailLocal });
+        setMsgLocal('If this email exists, a reset link has been sent.');
+      } else {
+        setMsgLocal('Password reset is not available on the backend.');
+      }
+    } catch (err) {
+      setMsgLocal(err?.message || 'Reset failed');
+    } finally {
+      setLoadingLocal(false);
+    }
+  }
+
+  return (
+    <div className="mt-3 text-sm">
+      <button type="button" className="text-agoraTeal underline" onClick={() => setShowResetLocal((s) => !s)}>
+        Forgot password?
+      </button>
+      {showResetLocal && (
+        <div className="mt-2 flex gap-2">
+          <input value={emailLocal} onChange={(e) => setEmailLocal(e.target.value)} placeholder="Your email" className="flex-1 px-3 py-2 rounded bg-gray-100 dark:bg-gray-900 border" />
+          <button onClick={send} disabled={loadingLocal} className="px-3 py-2 bg-agoraPink text-black rounded">Send</button>
+        </div>
+      )}
+    {msgLocal && <p className="mt-2 text-xs text-gray-500">{msgLocal}</p>}
+    </div>
+  );
+}
+
 
 /* ---------------- SIGNUP WIZARD ---------------- */
 function SignupWizard() {
@@ -221,7 +321,7 @@ function SignupWizard() {
           className={`px-4 py-2 rounded-md ${
             role === "customer"
               ? "bg-agoraTeal text-black font-semibold"
-              : "bg-gray-200 dark:bg-gray-800 text-gray-700 dark:text-gray-300"
+              : "bg-gray-200 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-teal-400 dark:hover:bg-teal-400 dark:hover:text-black"
           }`}
         >
           Customer
@@ -231,7 +331,7 @@ function SignupWizard() {
           className={`px-4 py-2 rounded-md ${
             role === "vendor"
               ? "bg-agoraPink text-black font-semibold"
-              : "bg-gray-200 dark:bg-gray-800 text-gray-700 dark:text-gray-300"
+              : "bg-gray-200 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-pink-400 dark:hover:bg-pink-400  dark:hover:text-black"
           }`}
         >
           Vendor
@@ -250,6 +350,7 @@ function SignupWizard() {
   );
 }
 
+
 /* ---------------- CUSTOMER SIGNUP ---------------- */
 function CustomerSignup() {
   const { signup } = useAuth();
@@ -259,16 +360,31 @@ function CustomerSignup() {
     email: "",
     password: "",
     phone: "",
-    address: "",
+    address: { street: "", city: "", state: "", zipCode: "" },
   });
+  const [showPassword, setShowPassword] = useState(false);
   const [msg, setMsg] = useState("");
+  const [loading, setLoading] = useState(false);
 
   async function submit(e) {
     e.preventDefault();
+    setLoading(true);
+    setMsg("");
+
     try {
       await signup({ ...form, role: "customer" });
     } catch (err) {
-      setMsg(err.message || "Signup failed");
+      if (err.errors) {
+        const errorMessages = err.errors
+          .map((error) => `${error.field}: ${error.message}`)
+          .join(", ");
+        setMsg(`Validation errors: ${errorMessages}`);
+      } else {
+        setMsg(err.message || "Signup failed");
+      }
+      console.error("Signup error details:", err);
+    } finally {
+      setLoading(false);
     }
   }
 
@@ -277,68 +393,166 @@ function CustomerSignup() {
       onSubmit={submit}
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
-      transition={{ duration: 0.6 }}
-      className="space-y-4"
+      transition={{ duration: 0.4 }}
+      className="space-y-4 space-x-2 overflow-hidden"
     >
-      {step === 1 && (
-        <>
-          <input
-            required
-            placeholder="Full name"
-            value={form.name}
-            onChange={(e) => setForm({ ...form, name: e.target.value })}
-            className="w-full px-3 py-2 rounded-md bg-gray-100 dark:bg-gray-900 border border-gray-300 dark:border-gray-700"
-          />
-          <input
-            required
-            placeholder="Email"
-            value={form.email}
-            onChange={(e) => setForm({ ...form, email: e.target.value })}
-            className="w-full px-3 py-2 rounded-md bg-gray-100 dark:bg-gray-900 border border-gray-300 dark:border-gray-700"
-          />
-          <input
-            required
-            type="password"
-            placeholder="Password"
-            value={form.password}
-            onChange={(e) => setForm({ ...form, password: e.target.value })}
-            className="w-full px-3 py-2 rounded-md bg-gray-100 dark:bg-gray-900 border border-gray-300 dark:border-gray-700"
-          />
-          <button
-            type="button"
-            onClick={() => setStep(2)}
-            className="w-full px-4 py-2 rounded-full bg-agoraTeal text-black font-semibold"
+      <AnimatePresence mode="wait">
+        {step === 1 && (
+          <motion.div
+            key="step1"
+            initial={{ x: -100, opacity: 0 }}
+            animate={{ x: 0, opacity: 1 }}
+            exit={{ x: 100, opacity: 0 }}
+            transition={{ duration: 0.4 }}
+            className="space-y-3 px-0.5 "
           >
-            Next
-          </button>
-        </>
-      )}
+            <input
+              required
+              placeholder="Full Name (min 2 characters)"
+              value={form.name}
+              onChange={(e) => setForm({ ...form, name: e.target.value })}
+              className=" mt-1 w-full px-3 py-2 rounded-md bg-gray-100 dark:bg-gray-900 border border-gray-300 dark:border-gray-700 "
+              minLength="2"
+            />
+            <input
+              required
+              type="email"
+              placeholder="Email"
+              value={form.email}
+              onChange={(e) => setForm({ ...form, email: e.target.value })}
+              className="w-full px-3 py-2 rounded-md bg-gray-100 dark:bg-gray-900 border border-gray-300 dark:border-gray-700"
+            />
+            <div className="relative">
+              <input
+                required
+                type={showPassword ? 'text' : 'password'}
+                placeholder="Password (e.g., Test123!)"
+                value={form.password}
+                onChange={(e) => setForm({ ...form, password: e.target.value })}
+                className="w-full px-3 py-2 pr-10 rounded-md bg-gray-100 dark:bg-gray-900 border border-gray-300 dark:border-gray-700"
+                minLength="6"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(s => !s)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+                aria-label={showPassword ? 'Hide password' : 'Show password'}
+                tabIndex={-1}
+              >
+                {showPassword ? <FaEyeSlash size={18} /> : <FaEye size={18} />}
+              </button>
+            </div>
+            <p className="text-xs text-gray-500">
+              Must include uppercase, lowercase, number, and special character
+            </p>
 
-      {step === 2 && (
-        <>
-          <input
-            required
-            placeholder="Phone number"
-            value={form.phone}
-            onChange={(e) => setForm({ ...form, phone: e.target.value })}
-            className="w-full px-3 py-2 rounded-md bg-gray-100 dark:bg-gray-900 border border-gray-300 dark:border-gray-700"
-          />
-          <input
-            required
-            placeholder="Delivery address"
-            value={form.address}
-            onChange={(e) => setForm({ ...form, address: e.target.value })}
-            className="w-full px-3 py-2 rounded-md bg-gray-100 dark:bg-gray-900 border border-gray-300 dark:border-gray-700"
-          />
-          <button
-            type="submit"
-            className="w-full px-4 py-2 rounded-full bg-agoraPink text-black font-semibold"
+            <button
+              type="button"
+              onClick={() => setStep(2)}
+              disabled={!form.name || !form.email || !form.password}
+              className="w-full px-4 py-2 rounded-full bg-agoraTeal text-black font-semibold disabled:opacity-50"
+            >
+              Next
+            </button>
+          </motion.div>
+        )}
+
+        {step === 2 && (
+          <motion.div
+            key="step2"
+            initial={{ x: 100, opacity: 0 }}
+            animate={{ x: 0, opacity: 1 }}
+            exit={{ x: -100, opacity: 0 }}
+            transition={{ duration: 0.4 }}
+            className="space-y-3 px-0.5"
           >
-            Create Account
-          </button>
-        </>
+            <input
+              required
+              placeholder="Phone number (10 digits, starts with 6-9)"
+              value={form.phone}
+              onChange={(e) =>
+                setForm({
+                  ...form,
+                  phone: e.target.value.replace(/\D/g, "").slice(0, 10),
+                })
+              }
+              className=" mt-1 w-full px-3 py-2 rounded-md bg-gray-100 dark:bg-gray-900 border border-gray-300 dark:border-gray-700"
+              maxLength="10"
+            />
+            {/* Address fields */}
+            <input
+              required
+              placeholder="Street"
+              value={form.address.street}
+              onChange={(e) =>
+                setForm({
+                  ...form,
+                  address: { ...form.address, street: e.target.value },
+                })
+              }
+              className="w-full px-3 py-2 rounded-md bg-gray-100 dark:bg-gray-900 border border-gray-300 dark:border-gray-700"
+            />
+            <input
+              required
+              placeholder="City"
+              value={form.address.city}
+              onChange={(e) =>
+                setForm({
+                  ...form,
+                  address: { ...form.address, city: e.target.value },
+                })
+              }
+              className="w-full px-3 py-2 rounded-md bg-gray-100 dark:bg-gray-900 border border-gray-300 dark:border-gray-700"
+            />
+            <input
+              required
+              placeholder="State"
+              value={form.address.state}
+              onChange={(e) =>
+                setForm({
+                  ...form,
+                  address: { ...form.address, state: e.target.value },
+                })
+              }
+              className="w-full px-3 py-2 rounded-md bg-gray-100 dark:bg-gray-900 border border-gray-300 dark:border-gray-700"
+            />
+            <input
+              required
+              placeholder="Pin Code"
+              value={form.address.zipCode}
+              onChange={(e) =>
+                setForm({
+                  ...form,
+                  address: { ...form.address, zipCode: e.target.value },
+                })
+              }
+              className="w-full px-3 py-2 rounded-md bg-gray-100 dark:bg-gray-900 border border-gray-300 dark:border-gray-700"
+            />
+
+            {/* Back + Submit */}
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => setStep(1)}
+                className="flex-1 px-4 py-2 rounded-full bg-gray-300 text-black font-semibold hover:bg-red-400"
+              >
+                Back
+              </button>
+              <button
+                type="submit"
+                disabled={loading}
+                className="flex-1 px-4 py-2 rounded-full bg-agoraPink text-black font-semibold disabled:opacity-50"
+              >
+                {loading ? "Creating Account..." : "Create Account"}
+              </button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {msg && (
+        <p className="text-sm text-red-500 bg-red-50 p-2 rounded">{msg}</p>
       )}
-      {msg && <p className="text-sm text-red-500">{msg}</p>}
     </motion.form>
   );
 }
@@ -351,20 +565,36 @@ function VendorSignup() {
     name: "",
     email: "",
     password: "",
+    phone: "",
     storeName: "",
     bio: "",
-    location: "",
-    vendorType: "product", // 👈 default is product
-    documents: {},
+    vendorType: "product",
+    address: { street: "", city: "", state: "", zipCode: "" },
   });
+  const [showPassword, setShowPassword] = useState(false);
   const [msg, setMsg] = useState("");
+  const [loading, setLoading] = useState(false);
 
   async function submit(e) {
     e.preventDefault();
+    setLoading(true);
+    setMsg("");
+
     try {
-      await signup({ ...form, role: "vendor" });
+      const vendorData = { ...form, role: "vendor" };
+      await signup(vendorData);
     } catch (err) {
-      setMsg(err.message || "Signup failed");
+      if (err.errors) {
+        const errorMessages = err.errors
+          .map((error) => `${error.field}: ${error.message}`)
+          .join("\n");
+        setMsg(`Validation errors:\n${errorMessages}`);
+      } else {
+        setMsg(err.message || "Vendor signup failed");
+      }
+      console.error("Vendor signup error details:", err);
+    } finally {
+      setLoading(false);
     }
   }
 
@@ -373,104 +603,190 @@ function VendorSignup() {
       onSubmit={submit}
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
-      transition={{ duration: 0.6 }}
-      className="space-y-4"
+      transition={{ duration: 0.4 }}
+      className="space-y-4 overflow-hidden"
     >
-      {step === 1 && (
-        <>
-          <input
-            required
-            placeholder="Full name"
-            value={form.name}
-            onChange={(e) => setForm({ ...form, name: e.target.value })}
-            className="w-full px-3 py-2 rounded-md bg-gray-100 dark:bg-gray-900 border border-gray-300 dark:border-gray-700"
-          />
-          <input
-            required
-            placeholder="Email"
-            value={form.email}
-            onChange={(e) => setForm({ ...form, email: e.target.value })}
-            className="w-full px-3 py-2 rounded-md bg-gray-100 dark:bg-gray-900 border border-gray-300 dark:border-gray-700"
-          />
-          <input
-            required
-            type="password"
-            placeholder="Password"
-            value={form.password}
-            onChange={(e) => setForm({ ...form, password: e.target.value })}
-            className="w-full px-3 py-2 rounded-md bg-gray-100 dark:bg-gray-900 border border-gray-300 dark:border-gray-700"
-          />
-          <button
-            type="button"
-            onClick={() => setStep(2)}
-            className="w-full px-4 py-2 rounded-full bg-agoraTeal text-black font-semibold"
+      <AnimatePresence mode="wait">
+        {step === 1 && (
+          <motion.div
+            key="step1"
+            initial={{ x: -100, opacity: 0 }}
+            animate={{ x: 0, opacity: 1 }}
+            exit={{ x: 100, opacity: 0 }}
+            transition={{ duration: 0.4 }}
+            className="space-y-3 px-0.5 "
           >
-            Next
-          </button>
-        </>
-      )}
+            <input
+              required
+              placeholder="Full name"
+              value={form.name}
+              onChange={(e) => setForm({ ...form, name: e.target.value })}
+              className="mt-1 w-full px-3 py-2 rounded-md bg-gray-100 dark:bg-gray-900 border border-gray-300 dark:border-gray-700"
+              minLength="2"
+            />
+            <input
+              required
+              type="email"
+              placeholder="Email"
+              value={form.email}
+              onChange={(e) => setForm({ ...form, email: e.target.value })}
+              className="w-full px-3 py-2 rounded-md bg-gray-100 dark:bg-gray-900 border border-gray-300 dark:border-gray-700"
+            />
+            <div className="relative">
+              <input
+                required
+                type={showPassword ? 'text' : 'password'}
+                placeholder="Password (e.g., Vendor123!)"
+                value={form.password}
+                onChange={(e) => setForm({ ...form, password: e.target.value })}
+                className="w-full px-3 py-2 pr-10 rounded-md bg-gray-100 dark:bg-gray-900 border border-gray-300 dark:border-gray-700"
+                minLength="6"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(s => !s)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+                aria-label={showPassword ? 'Hide password' : 'Show password'}
+                tabIndex={-1}
+              >
+                {showPassword ? <FaEyeSlash size={18} /> : <FaEye size={18} />}
+              </button>
+            </div>
+            <button
+              type="button"
+              onClick={() => setStep(2)}
+              disabled={!form.name || !form.email || !form.password}
+              className="w-full px-4 py-2 rounded-full bg-agoraTeal text-black font-semibold disabled:opacity-50"
+            >
+              Next
+            </button>
+          </motion.div>
+        )}
 
-      {step === 2 && (
-        <>
-          <input
-            required
-            placeholder="Store Name"
-            value={form.storeName}
-            onChange={(e) => setForm({ ...form, storeName: e.target.value })}
-            className="w-full px-3 py-2 rounded-md bg-gray-100 dark:bg-gray-900 border border-gray-300 dark:border-gray-700"
-          />
-          <textarea
-            required
-            placeholder="Store Bio / Description"
-            value={form.bio}
-            onChange={(e) => setForm({ ...form, bio: e.target.value })}
-            className="w-full px-3 py-2 rounded-md bg-gray-100 dark:bg-gray-900 border border-gray-300 dark:border-gray-700"
-          />
-          <input
-            required
-            placeholder="Business Location"
-            value={form.location}
-            onChange={(e) => setForm({ ...form, location: e.target.value })}
-            className="w-full px-3 py-2 rounded-md bg-gray-100 dark:bg-gray-900 border border-gray-300 dark:border-gray-700"
-          />
-          <select
-            value={form.vendorType}
-            onChange={(e) => setForm({ ...form, vendorType: e.target.value })}
-            className="w-full px-3 py-2 rounded-md bg-gray-100 dark:bg-gray-900 border border-gray-300 dark:border-gray-700"
+        {step === 2 && (
+          <motion.div
+            key="step2"
+            initial={{ x: 100, opacity: 0 }}
+            animate={{ x: 0, opacity: 1 }}
+            exit={{ x: -100, opacity: 0 }}
+            transition={{ duration: 0.4 }}
+            className="space-y-3 px-0.5"
           >
-            <option value="product">Product Vendor (Food, Crafts, etc.)</option>
-            <option value="service">Service Vendor (Plumber, Electrician, etc.)</option>
-          </select>
-          <button
-            type="button"
-            onClick={() => setStep(3)}
-            className="w-full px-4 py-2 rounded-full bg-agoraPink text-black font-semibold"
-          >
-            Next
-          </button>
-        </>
-      )}
+            <input
+              required
+              placeholder="Store Name"
+              value={form.storeName}
+              onChange={(e) => setForm({ ...form, storeName: e.target.value })}
+              className=" mt-1 w-full px-3 py-2 rounded-md bg-gray-100 dark:bg-gray-900 border border-gray-300 dark:border-gray-700"
+            />
+            <input
+              required
+              placeholder="Phone number (10 digits)"
+              value={form.phone}
+              onChange={(e) =>
+                setForm({
+                  ...form,
+                  phone: e.target.value.replace(/\D/g, "").slice(0, 10),
+                })
+              }
+              className="w-full px-3 py-2 rounded-md bg-gray-100 dark:bg-gray-900 border border-gray-300 dark:border-gray-700"
+              maxLength="10"
+            />
+            {/* Address fields */}
+            <input
+              required
+              placeholder="Street"
+              value={form.address.street}
+              onChange={(e) =>
+                setForm({
+                  ...form,
+                  address: { ...form.address, street: e.target.value },
+                })
+              }
+              className="w-full px-3 py-2 rounded-md bg-gray-100 dark:bg-gray-900 border border-gray-300 dark:border-gray-700"
+            />
+            <input
+              required
+              placeholder="City"
+              value={form.address.city}
+              onChange={(e) =>
+                setForm({
+                  ...form,
+                  address: { ...form.address, city: e.target.value },
+                })
+              }
+              className="w-full px-3 py-2 rounded-md bg-gray-100 dark:bg-gray-900 border border-gray-300 dark:border-gray-700"
+            />
+            <input
+              required
+              placeholder="State"
+              value={form.address.state}
+              onChange={(e) =>
+                setForm({
+                  ...form,
+                  address: { ...form.address, state: e.target.value },
+                })
+              }
+              className="w-full px-3 py-2 rounded-md bg-gray-100 dark:bg-gray-900 border border-gray-300 dark:border-gray-700"
+            />
+            <input
+              required
+              placeholder="Pin Code"
+              value={form.address.zipCode}
+              onChange={(e) =>
+                setForm({
+                  ...form,
+                  address: { ...form.address, zipCode: e.target.value },
+                })
+              }
+              className="w-full px-3 py-2 rounded-md bg-gray-100 dark:bg-gray-900 border border-gray-300 dark:border-gray-700"
+            />
 
-      {step === 3 && (
-        <>
-          <label className="text-sm text-gray-600 dark:text-gray-300">
-            Upload documents (mock)
-          </label>
-          <input
-            type="file"
-            multiple
-            onChange={(e) => setForm({ ...form, documents: e.target.files })}
-            className="w-full px-3 py-2 rounded-md bg-gray-100 dark:bg-gray-900 border border-gray-300 dark:border-gray-700"
-          />
-          <button
-            type="submit"
-            className="w-full px-4 py-2 rounded-full bg-agoraTeal text-black font-semibold"
-          >
-            Create Vendor Account
-          </button>
-        </>
+            <textarea
+              required
+              placeholder="Store Bio / Description"
+              value={form.bio}
+              onChange={(e) => setForm({ ...form, bio: e.target.value })}
+              className="w-full px-3 py-2 rounded-md bg-gray-100 dark:bg-gray-900 border border-gray-300 dark:border-gray-700"
+              rows="3"
+            />
+            <select
+              value={form.vendorType}
+              onChange={(e) => setForm({ ...form, vendorType: e.target.value })}
+              className="w-full px-3 py-2 rounded-md bg-gray-100 dark:bg-gray-900 border border-gray-300 dark:border-gray-700"
+            >
+              <option value="product">
+                Product Vendor (Food, Crafts, etc.)
+              </option>
+              <option value="service">
+                Service Vendor (Plumber, Electrician, etc.)
+              </option>
+            </select>
+
+            {/* Back + Submit */}
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => setStep(1)}
+                className="flex-1 px-4 py-2 rounded-full bg-gray-300 text-black font-semibold hover:bg-red-400"
+              >
+                Back
+              </button>
+              <button
+                type="submit"
+                disabled={loading}
+                className="flex-1 px-4 py-2 rounded-full bg-agoraPink text-black font-semibold disabled:opacity-50"
+              >
+                {loading ? "Creating Vendor Account..." : "Create Vendor Account"}
+              </button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {msg && (
+        <p className="text-sm text-red-500 bg-red-50 p-2 rounded">{msg}</p>
       )}
-      {msg && <p className="text-sm text-red-500">{msg}</p>}
     </motion.form>
   );
 }

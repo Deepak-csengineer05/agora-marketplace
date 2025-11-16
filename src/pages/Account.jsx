@@ -6,6 +6,8 @@ export default function Account() {
   const { user, updateUser } = useAuth();
   const [editing, setEditing] = useState(false);
   const [form, setForm] = useState({ ...user });
+  const [addresses, setAddresses] = useState(user?.addresses || []);
+  const [newAddress, setNewAddress] = useState({ street: '', city: '', state: '', zipCode: '' });
   const [msg, setMsg] = useState("");
 
   if (!user) {
@@ -14,7 +16,9 @@ export default function Account() {
 
   const handleSave = () => {
     try {
-      updateUser(form); // 🔥 persists to localStorage
+      // Persist addresses into form before saving
+      const updated = { ...form, addresses };
+      updateUser(updated); // 🔥 persists to localStorage
       setEditing(false);
       setMsg("Profile updated successfully!");
       setTimeout(() => setMsg(""), 2000);
@@ -53,12 +57,33 @@ export default function Account() {
               editing={editing}
               onChange={(v) => setForm({ ...form, phone: v })}
             />
-            <Field
-              label="Address"
-              value={form.address || ""}
-              editing={editing}
-              onChange={(v) => setForm({ ...form, address: v })}
-            />
+            {/* Address management */}
+            <div>
+              <label className="block text-sm text-gray-600 dark:text-gray-300">Addresses</label>
+              {addresses.length === 0 && <div className="text-sm text-gray-400">No saved addresses</div>}
+              <div className="space-y-2 mt-2">
+                {addresses.map((a, i) => (
+                  <div key={i} className="flex items-center gap-2">
+                    <div className="flex-1 text-sm px-3 py-2 rounded bg-gray-50 dark:bg-gray-800 border">{a.street}, {a.city}, {a.state} - {a.zipCode}</div>
+                    {editing && (
+                      <button onClick={() => setAddresses(addresses.filter((_, idx) => idx !== i))} className="px-3 py-1 bg-red-500 text-white rounded">Remove</button>
+                    )}
+                  </div>
+                ))}
+              </div>
+              {editing && (
+                <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  <input placeholder="Street" value={newAddress.street} onChange={(e) => setNewAddress({ ...newAddress, street: e.target.value })} className="px-3 py-2 rounded bg-gray-100 dark:bg-gray-800" />
+                  <input placeholder="City" value={newAddress.city} onChange={(e) => setNewAddress({ ...newAddress, city: e.target.value })} className="px-3 py-2 rounded bg-gray-100 dark:bg-gray-800" />
+                  <input placeholder="State" value={newAddress.state} onChange={(e) => setNewAddress({ ...newAddress, state: e.target.value })} className="px-3 py-2 rounded bg-gray-100 dark:bg-gray-800" />
+                  <input placeholder="Pin Code" value={newAddress.zipCode} onChange={(e) => setNewAddress({ ...newAddress, zipCode: e.target.value })} className="px-3 py-2 rounded bg-gray-100 dark:bg-gray-800" />
+                  <div className="sm:col-span-2 flex gap-2">
+                    <button onClick={() => { setAddresses([...addresses, newAddress]); setNewAddress({ street: '', city: '', state: '', zipCode: '' }); }} className="px-4 py-2 bg-agoraTeal text-black rounded">Add Address</button>
+                    <button onClick={() => setNewAddress({ street: '', city: '', state: '', zipCode: '' })} className="px-4 py-2 bg-gray-300 rounded">Clear</button>
+                  </div>
+                </div>
+              )}
+            </div>
           </>
         )}
 
@@ -83,6 +108,12 @@ export default function Account() {
               editing={editing}
               onChange={(v) => setForm({ ...form, location: v })}
             />
+            {/* Payment methods placeholder */}
+            <div className="mt-4">
+              <label className="block text-sm text-gray-600 dark:text-gray-300">Saved Payment Methods</label>
+              <div className="mt-2 text-sm text-gray-500">No saved cards. (Placeholder UI)</div>
+              {editing && <button className="mt-2 px-4 py-2 bg-agoraTeal text-black rounded">Add Card</button>}
+            </div>
             <Field
               label="Vendor Type"
               value={form.vendorType || "product"}

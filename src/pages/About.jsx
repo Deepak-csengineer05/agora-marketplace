@@ -148,7 +148,7 @@ export default function About() {
         <div className="mt-5 sm:mt-6">
           <a
             href="/auth/register"
-            className="px-5 sm:px-6 py-2.5 sm:py-3 rounded-full bg-agoraTeal text-black font-semibold shadow hover:scale-105 transition text-sm sm:text-base"
+            className="px-5 sm:px-6 py-2.5 sm:py-3 rounded-full bg-agoraTeal text-black font-semibold shadow hover:scale-105 transition text-sm sm:text-base hover:bg-agoraPink"
           >
             Join Agora
           </a>

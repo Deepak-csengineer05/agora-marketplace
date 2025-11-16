@@ -15,6 +15,8 @@ module.exports = {
       backgroundImage: {
         "brand-gradient":
           "linear-gradient(90deg, #00c6ff, #6a11cb, #ff5b8a, #ffb86b, #00f260)",
+        "brand-gradient2":
+          "linear-gradient(90deg, #00f260,#00c6ff,#ffb86b)",
       },
     },
   },

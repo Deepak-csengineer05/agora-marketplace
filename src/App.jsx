@@ -34,6 +34,27 @@ import DeliveryDashboard from "./pages/delivery/DeliveryDashboard";
 import ProductVendorDashboard from "./pages/vendor/ProductVendorDashboard";
 import ServiceVendorDashboard from "./pages/vendor/ServiceVendorDashboard";
 
+// Add this right after your imports in App.jsx
+const originalReplaceState = window.history.replaceState;
+window.history.replaceState = function(state, title, url) {
+  try {
+    // Check for Promises in state
+    if (state && typeof state === 'object') {
+      JSON.stringify(state, (key, value) => {
+        if (value && typeof value.then === 'function') {
+          console.error('Promise found in history state at key:', key);
+          return null; // Replace Promise with null
+        }
+        return value;
+      });
+    }
+    return originalReplaceState.call(this, state, title, url);
+  } catch (error) {
+    console.error('History state error:', error);
+    return originalReplaceState.call(this, {}, title, url);
+  }
+};
+
 // Simple protected route logic
 function ProtectedRoute({ children, role }) {
   const { user } = useAuth();
@@ -64,9 +85,19 @@ function VendorDashboardRouter() {
   return <Navigate to="/" replace />;
 }
 
+// Loading component for better UX
+function LoadingSpinner() {
+  return (
+    <div className="flex items-center justify-center min-h-screen">
+      <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-agoraTeal"></div>
+    </div>
+  );
+}
+
 export default function App() {
   return (
-      <ParallaxProvider>
+    <ParallaxProvider>
+      <AuthProvider>
         <CartProvider>
           <DeliveryProvider>
             <div className="min-h-screen bg-gray-50 dark:bg-black text-gray-900 dark:text-white transition-colors flex flex-col">
@@ -100,7 +131,7 @@ export default function App() {
                   <Route
                     path="/track-order"
                     element={
-                      <ProtectedRoute role= "customer">
+                      <ProtectedRoute role="customer">
                         <TrackOrder />
                       </ProtectedRoute>
                     }
@@ -121,7 +152,7 @@ export default function App() {
                     path="/vendor/dashboard"
                     element={
                       <ProtectedRoute role="vendor">
-                        <VendorDashboardRouter />   {/* This auto-decides product vs service */}
+                        <VendorDashboardRouter />
                       </ProtectedRoute>
                     }
                   />
@@ -149,6 +180,8 @@ export default function App() {
                       </ProtectedRoute>
                     }
                   />
+
+                  {/* Delivery routes */}
                   <Route
                     path="/delivery/dashboard"
                     element={
@@ -157,7 +190,6 @@ export default function App() {
                       </ProtectedRoute>
                     }
                   />
-                   
                   <Route
                     path="/delivery/tasks"
                     element={
@@ -191,6 +223,7 @@ export default function App() {
                     }
                   />
 
+                  {/* Admin routes */}
                   <Route
                     path="/admin/dashboard"
                     element={
@@ -199,6 +232,8 @@ export default function App() {
                       </ProtectedRoute>
                     }
                   />
+
+                  {/* Account route (all authenticated users) */}
                   <Route
                     path="/account"
                     element={
@@ -207,7 +242,6 @@ export default function App() {
                       </ProtectedRoute>
                     }
                   />
-                                  
                   {/* Fallback */}
                   <Route path="*" element={<Navigate to="/" replace />} />
                 </Routes>
@@ -215,6 +249,7 @@ export default function App() {
             </div>
           </DeliveryProvider>
         </CartProvider>
-      </ParallaxProvider>
+      </AuthProvider>
+    </ParallaxProvider>
   );
 }

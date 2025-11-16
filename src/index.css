@@ -3,6 +3,16 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Hide scrollbar completely while keeping scroll functionality */
+::-webkit-scrollbar {
+  display: none;
+}
+
+html {
+  -ms-overflow-style: none;  /* IE and Edge */
+  scrollbar-width: none;  /* Firefox */
+}
+
 /* custom */
 :root {
   --bg-grad-1: #020617;

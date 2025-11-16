@@ -99,7 +99,7 @@ export default function ApplyDelivery() {
           />
 
           <div className="mt-4">
-            <button className="px-4 py-2 rounded-full bg-agoraTeal text-black font-semibold">
+            <button className="px-4 py-2 rounded-full bg-agoraTeal text-black font-semibold hover:bg-agoraPink">
               Submit application
             </button>
           </div>

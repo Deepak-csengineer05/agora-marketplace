@@ -2,6 +2,9 @@
   import React from "react";
   import { Link, useLocation } from "react-router-dom";
   import { CheckCircle } from "lucide-react";
+  import PageContainer from "../components/UI/PageContainer";
+  import Card from "../components/UI/Card";
+  import Button from "../components/UI/Button";
 
   export default function OrderSuccess() {
     const location = useLocation();
@@ -22,6 +25,10 @@
     }
 
     const mode = order.mode || "food";
+
+    // Safe ID extraction (handles both 'id' and '_id')
+    const orderId = order.id || order._id || 'unknown';
+    const shortId = orderId.toString().slice(0, 6);
 
     const messages = {
       food: {
@@ -52,26 +59,23 @@
     }
 
     return (
-      <main className="max-w-3xl mx-auto px-6 py-20 text-center">
+      <PageContainer title={title} className="text-center">
         <CheckCircle className="mx-auto text-green-500 w-20 h-20 mb-6" />
-        <h1 className="text-4xl font-bold mb-4 bg-brand-gradient bg-clip-text text-transparent">
-          {title}
-        </h1>
         <p className="text-gray-600 dark:text-gray-400 mb-8">{subtitle}</p>
 
         {/* ✅ Order summary / receipt */}
-        <div className="bg-white dark:bg-gray-900 rounded-xl shadow p-6 mb-8 text-left">
+        <Card className="mb-8 text-left">
           <h2 className="font-semibold text-lg mb-3">
-            Order #{order.id.slice(0, 6)}
+            Order #{shortId}
           </h2>
           <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">
-            👤 {order.details?.name} — {order.details?.phone}
+            👤 {order.details?.name || 'Customer'} — {order.details?.phone || 'N/A'}
           </p>
 
           {mode === "food" && (
             <>
               <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
-                📍 {order.details?.address}
+                📍 {order.details?.address || 'Delivery address not provided'}
               </p>
 
               {order.details?.specialInstructions && (
@@ -90,24 +94,30 @@
 
           {order.items?.length > 0 && (
             <div className="divide-y divide-gray-200 dark:divide-gray-700 mb-3">
-              {order.items.map((item) => (
-                <div
-                  key={item.id || item.name}
-                  className="flex justify-between py-2 text-sm"
-                >
-                  <span>
-                    {item.name}
-                    {mode === "food" && ` × ${item.qty}`}
-                  </span>
-                  <span className="font-semibold">
-                    {mode === "food"
-                      ? `₹${item.price * item.qty}`
-                      : mode === "service"
-                      ? `₹${item.rate || order.total}`
-                      : ""}
-                  </span>
-                </div>
-              ))}
+              {order.items.map((item) => {
+                const qty = item.qty || item.quantity || 1;
+                const price = item.price || item.rate || 0;
+                const itemTotal = price * qty;
+                
+                return (
+                  <div
+                    key={item.id || item.name}
+                    className="flex justify-between py-2 text-sm"
+                  >
+                    <span>
+                      {item.name || 'Unknown Item'}
+                      {mode === "food" && ` × ${qty}`}
+                    </span>
+                    <span className="font-semibold">
+                      {mode === "food"
+                        ? `₹${isNaN(itemTotal) ? 0 : itemTotal}`
+                        : mode === "service"
+                        ? `₹${isNaN(price) ? 0 : price}`
+                        : ""}
+                    </span>
+                  </div>
+                );
+              })}
             </div>
           )}
 
@@ -115,15 +125,15 @@
             <div className="border-t pt-3 text-sm space-y-1">
               <div className="flex justify-between">
                 <span>Subtotal</span>
-                <span>₹{order.subtotal}</span>
+                <span>₹{isNaN(order.subtotal) ? 0 : order.subtotal}</span>
               </div>
               <div className="flex justify-between">
                 <span>Delivery Fee</span>
-                <span>₹{order.deliveryFee}</span>
+                <span>₹{isNaN(order.deliveryFee) ? 0 : order.deliveryFee}</span>
               </div>
               <div className="flex justify-between font-bold text-lg">
                 <span>Total</span>
-                <span>₹{order.total}</span>
+                <span>₹{isNaN(order.total) ? 0 : order.total}</span>
               </div>
               {order.deliveryEta && (
                 <div className="mt-2 flex items-center gap-3">
@@ -131,7 +141,7 @@
                     ETA: {formatEta(order.deliveryEta)}
                   </p>
                   <Link
-                    to={`/orders/${order.id}/track`}
+                    to={`/orders/${orderId}/track`}
                     className="px-3 py-1 bg-agoraPink text-black rounded-full text-sm font-semibold hover:scale-105 transition"
                   >
                     Track Live
@@ -159,29 +169,22 @@
               <p>📝 {order.details?.notes || "No additional details provided."}</p>
             </div>
           )}
-        </div>
+        </Card>
 
         {/* ✅ Action buttons */}
         <div className="flex justify-center gap-4 flex-wrap">
-          <Link
-            to="/shop"
-            className="px-6 py-3 bg-agoraTeal text-black font-semibold rounded-full hover:scale-105 transition"
-          >
-            Continue Browsing
+          <Link to="/shop">
+            <Button variant="primary" size="lg">Continue Browsing</Button>
           </Link>
-          <Link
-            to="/orders"
-            className="px-6 py-3 bg-agoraPink text-black font-semibold rounded-full hover:scale-105 transition"
-          >
-            {mode === "quote" ? "View Requests" : "Track Orders"}
+
+          <Link to="/orders">
+            <Button variant="accent" size="lg">{mode === "quote" ? "View Requests" : "Track Orders"}</Button>
           </Link>
-          <Link
-            to="/customer/dashboard"
-            className="px-6 py-3 bg-green-400 text-black font-semibold rounded-full hover:scale-105 transition"
-          >
-            Go to Dashboard
+
+          <Link to="/customer/dashboard">
+            <Button variant="success" size="lg">Go to Dashboard</Button>
           </Link>
         </div>
-      </main>
+      </PageContainer>
     );
   }
